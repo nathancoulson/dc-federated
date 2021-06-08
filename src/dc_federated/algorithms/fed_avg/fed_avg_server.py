@@ -370,11 +370,8 @@ class FedAvgServerRoni(FedAvgServer):
         # now update the global model and implement roni if required
         
         # Create trainer with hold out test set
-        
-        with open('roni_config', 'rt') as f:
-            config = json.load(f)
             
-        roni_trainer = self.roni_trainer_creator(config)
+        roni_trainer = self.roni_trainer_creator
         
         for i in range(len(worker_ids)):
             state_dict_subset_minus_worker = [model for index, model in enumerate(state_dicts_to_update_with) if index != i]
