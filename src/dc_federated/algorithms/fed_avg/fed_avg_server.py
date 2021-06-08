@@ -313,13 +313,13 @@ class FedAvgServerRoni(object):
     def __init__(self,
                  global_model_trainer,
                  key_list_file,
+                 roni_trainer_creator,
                  update_lim=10,
                  server_host_ip=None,
                  server_port=8080,
                  ssl_enabled=False,
                  ssl_keyfile=None,
-                 ssl_certfile=None,
-                roni_trainer_creator):
+                 ssl_certfile=None,):
         
         super(FedAvgServerRoni, self).__init__(global_model_trainer,
                  key_list_file,
