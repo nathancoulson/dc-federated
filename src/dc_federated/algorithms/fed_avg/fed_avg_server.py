@@ -14,7 +14,7 @@ from dc_federated.backend import DCFServer, \
 from dc_federated.backend._constants import *
 from dc_federated.algorithms.fed_avg.fed_avg_model_trainer import FedAvgModelTrainer
 
-from tinydb import TinyDB, Query, where
+from tinydb import TinyDB, Query, where, Document
 roni_db = TinyDB('/Users/ncoulson/Projects/knowrisk_ai/knowrisk_ai/fed_ml/roni_db.json')
 
 from datetime import datetime
