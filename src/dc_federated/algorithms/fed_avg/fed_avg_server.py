@@ -353,6 +353,14 @@ class FedAvgServerRoni(FedAvgServer):
                 agg_val = agg_val + sd[key] * sz
             agg_val = agg_val / sum(update_sizes)
             return torch.tensor(agg_val.cpu().clone().numpy())
+        
+        def gen_agg_model(model_subset_dicts, model_subset_sizes):
+            model_dict = OrderedDict()
+            for key in model_subset_dicts[0].keys():
+                model_dict[key] = agg_params(
+                    key, model_subset_dicts, model_subset_sizes)
+            
+            return model_dict
 
         # gather the model-updates to use for the update
         state_dicts_to_update_with = []
