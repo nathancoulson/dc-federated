@@ -14,11 +14,7 @@ from dc_federated.backend import DCFServer, \
 from dc_federated.backend._constants import *
 from dc_federated.algorithms.fed_avg.fed_avg_model_trainer import FedAvgModelTrainer
 
-import logging
-
-# Import evaluation function from user defined model
-
-from knowrisk_ai.fed_ml.knowrisk_fed_model import * 
+import logging 
 
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
@@ -275,3 +271,139 @@ class FedAvgServer(object):
 
     def start(self):
         self.server.start_server()
+        
+class FedAvgServerRoni(object):
+    """
+    This class implements the server-side of the FedAvg algorithm using the
+    dc_federated.backend package.
+
+    Parameters
+    ----------
+
+    global_model_trainer: FedAvgModelTrainer
+        The name of the python model-class for this problem.
+
+    update_lim: int
+        Number of unique updates that needs to be received before the last
+        global update before we update the global model.
+
+    key_list_file: str
+        The list of public keys of valid workers. No authentication is performed
+        if file not given.
+
+    server_host_ip: str (default None)
+        The hostname or IP address the server will bind to.
+        If not given, it will default to the machine IP.
+
+    server_port: int (default 8080)
+        The port at which the server should listen to.
+
+    ssl_enabled: bool (default False)
+        Enable SSL/TLS for server/workers communications.
+
+    ssl_keyfile: str
+        Must be a valid path to the key file.
+        This is mandatory if ssl_enabled is True, ignored otherwise.
+
+    ssl_certfile: str
+        Must be a valid path to the certificate.
+        This is mandatory if ssl_enabled is True, ignored otherwise.
+    """
+
+    def __init__(self,
+                 global_model_trainer,
+                 key_list_file,
+                 update_lim=10,
+                 server_host_ip=None,
+                 server_port=8080,
+                 ssl_enabled=False,
+                 ssl_keyfile=None,
+                 ssl_certfile=None,
+                roni_trainer_creator):
+        
+        super(FedAvgServerRoni, self).__init__(global_model_trainer,
+                 key_list_file,
+                 update_lim,
+                 server_host_ip,
+                 server_port,
+                 ssl_enabled,
+                 ssl_keyfile,
+                 ssl_certfile)
+        
+        self.roni_trainer_creator = roni_trainer_creator
+
+    def agg_model(self):
+        """
+        Updates the global model by aggregating all the most recent updates
+        from the workers, assuming that the number of unique updates received
+        since the last global model update is above the threshold.
+        
+        Additional feature of Record On Negative Impact (RONI) which constructs every permutation of
+        the global model leaving one update out and then comparing the performance with the complete
+        global model.
+        """
+        if self.unique_updates_since_last_agg < self.update_lim:
+            return False
+
+        logger.info("Updating the global model.\n")
+
+        def agg_params(key, state_dicts, update_sizes):
+            agg_val = state_dicts[0][key] * update_sizes[0]
+            for sd, sz in zip(state_dicts[1:], update_sizes[1:]):
+                agg_val = agg_val + sd[key] * sz
+            agg_val = agg_val / sum(update_sizes)
+            return torch.tensor(agg_val.cpu().clone().numpy())
+
+        # gather the model-updates to use for the update
+        state_dicts_to_update_with = []
+        update_sizes = []
+        worker_ids = []
+        # each item in the worker_updates dictionary contains a
+        # (timestamp update, update-size, model)
+        for wi in self.worker_updates:
+            if self.worker_updates[wi][0] > self.last_global_model_update_timestamp:
+                state_dicts_to_update_with.append(
+                    self.worker_updates[wi][2].state_dict())
+                update_sizes.append(self.worker_updates[wi][1])
+                worker_ids.append(wi)
+        
+        # now update the global model and implement roni if required
+        
+        # Create trainer with hold out test set
+        
+        with open('roni_config', 'rt') as f:
+            config = json.load(f)
+            
+        roni_trainer = self.roni_trainer_creator(config)
+        
+        for i in range(len(worker_ids)):
+            state_dict_subset_minus_worker = [model for index, model in enumerate(state_dicts_to_update_with) if index != i]
+            update_sizes_subset_minus_worker = [size for index, size in enumerate(update_sizes) if index != i]
+            subset_agg_model = gen_agg_model(state_dict_subset_minus_worker, update_sizes_subset_minus_worker)
+            print("Subset model size:")
+            print(len(subset_agg_model))
+
+            # Load into global model for testing - replace with validation set testing
+
+            logger.info("Performance on test set without worker {}".format(worker_ids[i]))
+            
+            # Evaluate against held back test set or robust synthetic test set
+            
+            self.global_model_trainer.load_model_from_state_dict(subset_agg_model)
+            roni_trainer.load_model(self.global_model_trainer.get_model())
+            roni_trainer.test()
+        
+        # now update the global model
+        global_model_dict = OrderedDict()
+        for key in state_dicts_to_update_with[0].keys():
+            global_model_dict[key] = agg_params(
+                key, state_dicts_to_update_with, update_sizes)
+
+        self.global_model_trainer.load_model_from_state_dict(global_model_dict)
+
+        self.last_global_model_update_timestamp = datetime.now()
+        self.unique_updates_since_last_agg = 0
+        self.iteration += 1
+        self.model_version += 1
+
+        return True
