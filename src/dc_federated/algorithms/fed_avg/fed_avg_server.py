@@ -272,7 +272,7 @@ class FedAvgServer(object):
     def start(self):
         self.server.start_server()
         
-class FedAvgServerRoni(object):
+class FedAvgServerRoni(FedAvgServer):
     """
     This class implements the server-side of the FedAvg algorithm using the
     dc_federated.backend package.
