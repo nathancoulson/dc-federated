@@ -14,6 +14,11 @@ from dc_federated.backend import DCFServer, \
 from dc_federated.backend._constants import *
 from dc_federated.algorithms.fed_avg.fed_avg_model_trainer import FedAvgModelTrainer
 
+from tinydb import TinyDB, Query, where
+roni_db = TinyDB('/Users/ncoulson/Projects/knowrisk_ai/knowrisk_ai/fed_ml/roni_db.json')
+
+from datetime import datetime
+
 import logging 
 
 logger = logging.getLogger(__name__)
@@ -378,8 +383,15 @@ class FedAvgServerRoni(FedAvgServer):
         # now update the global model and implement roni if required
         
         # Create trainer with hold out test set
+        
+        # collect subset and global test perf data with model version and timestamp
+        
+        dateTimeObj = datetime.now()
+        timestampStr = dateTimeObj.strftime("%d-%b-%Y (%H:%M:%S.%f)")
             
         roni_trainer = self.roni_trainer_creator
+        
+        test_run_dict = {self.model_version: {}}
         
         for i in range(len(worker_ids)):
             state_dict_subset_minus_worker = [model for index, model in enumerate(state_dicts_to_update_with) if index != i]
@@ -395,14 +407,27 @@ class FedAvgServerRoni(FedAvgServer):
             # Evaluate against held back test set or robust synthetic test set
             
             roni_trainer.load_model_from_state_dict(subset_agg_model)
-            roni_trainer.test()
+            subset_test_perf = roni_trainer.test()
+            
+            test_run_dict[self.model_version].update({worker_ids[i]: {"average loss": subset_test_perf["average loss"],
+                                               "accuracy": subset_test_perf["accuracy"], "model_start_timestamp": timestampStr}})
         
         # now update the global model
         global_model_dict = OrderedDict()
         for key in state_dicts_to_update_with[0].keys():
             global_model_dict[key] = agg_params(
                 key, state_dicts_to_update_with, update_sizes)
-
+        
+        # Get test perf for global model with all updates
+        
+        roni_trainer.load_model_from_state_dict(global_model_dict)
+        global_model_test_perf = roni_trainer.test()
+        
+        test_run_dict[self.model_version].update("global_model": {"average loss": subset_test_perf["average loss"],
+                                            "accuracy": subset_test_perf["accuracy"], "model_start_timestamp": timestampStr})
+        
+        roni_db.insert(Document(test_run_dict, doc_id=self.model_version))
+        
         self.global_model_trainer.load_model_from_state_dict(global_model_dict)
 
         self.last_global_model_update_timestamp = datetime.now()
