@@ -1,0 +1,10 @@
+{
+  "data_file": "/Users/ncoulson/Projects/dc_fed_roni/dc-federated/src/dc_federated/algorithms/fed_avg/no_trash_bucket_0.pickle",
+  "unique_bucket_words": "/Users/ncoulson/Projects/dc_fed_roni/dc-federated/src/dc_federated/algorithms/fed_avg/unique_words_all_bucket.pickle",
+  "epochs_per_iter": 5,
+  "batch_size": 100,
+  "train_frac": 0.1,
+  "model_config":{
+    "model_embed_dim": 20 
+  }
+}

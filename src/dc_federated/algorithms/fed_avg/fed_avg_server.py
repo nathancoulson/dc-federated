@@ -16,6 +16,10 @@ from dc_federated.algorithms.fed_avg.fed_avg_model_trainer import FedAvgModelTra
 
 import logging
 
+# Import evaluation function from user defined model
+
+from knowrisk_ai.fed_ml.knowrisk_fed_model import * 
+
 logger = logging.getLogger(__name__)
 logger.setLevel(level=logging.INFO)
 
@@ -198,6 +202,10 @@ class FedAvgServer(object):
         Updates the global model by aggregating all the most recent updates
         from the workers, assuming that the number of unique updates received
         since the last global model update is above the threshold.
+        
+        Additional feature of Record On Negative Impact (RONI) which constructs every permutation of
+        the global model leaving one update out and then comparing the performance with the complete
+        global model.
         """
         if self.unique_updates_since_last_agg < self.update_lim:
             return False
@@ -214,6 +222,7 @@ class FedAvgServer(object):
         # gather the model-updates to use for the update
         state_dicts_to_update_with = []
         update_sizes = []
+        worker_ids = []
         # each item in the worker_updates dictionary contains a
         # (timestamp update, update-size, model)
         for wi in self.worker_updates:
@@ -221,7 +230,34 @@ class FedAvgServer(object):
                 state_dicts_to_update_with.append(
                     self.worker_updates[wi][2].state_dict())
                 update_sizes.append(self.worker_updates[wi][1])
+                worker_ids.append(wi)
+        
+        # now update the global model and implement roni if required
+        
+        # Create trainer with hold out test set
+        
+        with open('roni_config', 'rt') as f:
+            config = json.load(f)
+            
+        roni_trainer = create_trainer_from_config(config)
+        
+        for i in range(len(worker_ids)):
+            state_dict_subset_minus_worker = [model for index, model in enumerate(state_dicts_to_update_with) if index != i]
+            update_sizes_subset_minus_worker = [size for index, size in enumerate(update_sizes) if index != i]
+            subset_agg_model = gen_agg_model(state_dict_subset_minus_worker, update_sizes_subset_minus_worker)
+            print("Subset model size:")
+            print(len(subset_agg_model))
 
+            # Load into global model for testing - replace with validation set testing
+
+            logger.info("Performance on test set without worker {}".format(worker_ids[i]))
+            
+            # Evaluate against held back test set or robust synthetic test set
+            
+            self.global_model_trainer.load_model_from_state_dict(subset_agg_model)
+            roni_trainer.load_model(self.global_model_trainer.get_model())
+            roni_trainer.test()
+        
         # now update the global model
         global_model_dict = OrderedDict()
         for key in state_dicts_to_update_with[0].keys():
