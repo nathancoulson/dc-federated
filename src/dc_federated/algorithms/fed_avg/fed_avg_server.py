@@ -14,7 +14,7 @@ from dc_federated.backend import DCFServer, \
 from dc_federated.backend._constants import *
 from dc_federated.algorithms.fed_avg.fed_avg_model_trainer import FedAvgModelTrainer
 
-from tinydb import TinyDB, Query, where, Document
+from tinydb import TinyDB, Query
 roni_db = TinyDB('/Users/ncoulson/Projects/knowrisk_ai/knowrisk_ai/fed_ml/roni_db.json')
 
 from datetime import datetime
@@ -426,7 +426,7 @@ class FedAvgServerRoni(FedAvgServer):
         test_run_dict[self.model_version].update({"global_model": {"average loss": subset_test_perf["average loss"],
                                             "accuracy": subset_test_perf["accuracy"], "model_start_timestamp": timestampStr}})
         
-        roni_db.insert(Document(test_run_dict, doc_id=self.model_version))
+        roni_db.insert(test_run_dict)
         
         self.global_model_trainer.load_model_from_state_dict(global_model_dict)
 
