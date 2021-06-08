@@ -394,12 +394,7 @@ class FedAvgServerRoni(FedAvgServer):
             
             # Evaluate against held back test set or robust synthetic test set
             
-            self.global_model_trainer.load_model_from_state_dict(subset_agg_model)
-            
-            model_data = io.BytesIO()
-            torch.save(self.global_model_trainer.get_model(), model_data)
-            
-            roni_trainer.load_model(model_data)
+            roni_trainer.load_model_from_state_dict(subset_agg_model)
             roni_trainer.test()
         
         # now update the global model
