@@ -397,9 +397,22 @@ class FedAvgServerRoni(FedAvgServer):
             state_dict_subset_minus_worker = [model for index, model in enumerate(state_dicts_to_update_with) if index != i]
             update_sizes_subset_minus_worker = [size for index, size in enumerate(update_sizes) if index != i]
             subset_agg_model = gen_agg_model(state_dict_subset_minus_worker, update_sizes_subset_minus_worker)
+            
+            print("Subset agg model keys:")
+            print(subset_agg_model.keys())
+            
             print("Subset model size:")
             print(len(subset_agg_model))
-
+            
+            for k, v in subset_agg_model.items():
+                print("key:")
+                print(k)
+                print(len(k))
+                
+                print("value:")
+                print(v)
+                print(len(v))
+            
             # Load into global model for testing - replace with validation set testing
 
             logger.info("Performance on test set without worker {}".format(worker_ids[i]))
