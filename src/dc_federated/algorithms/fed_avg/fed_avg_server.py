@@ -418,6 +418,7 @@ class FedAvgServerRoni(FedAvgServer):
             
             test_run_dict[self.model_version].update({worker_ids[i]: {"average loss": subset_test_perf["average loss"],
                                                "accuracy": subset_test_perf["accuracy"], "model_start_timestamp": timestampStr}})
+
         
         # now update the global model
         global_model_dict = OrderedDict()
@@ -430,8 +431,8 @@ class FedAvgServerRoni(FedAvgServer):
         roni_trainer.load_model_from_state_dict(global_model_dict)
         global_model_test_perf = roni_trainer.test()
         
-        test_run_dict[self.model_version].update({"global_model": {"average loss": subset_test_perf["average loss"],
-                                            "accuracy": subset_test_perf["accuracy"], "model_start_timestamp": timestampStr}})
+        test_run_dict[self.model_version].update({"global_model": {"average loss": global_model_test_perf["average loss"],
+                                            "accuracy": global_model_test_perf["accuracy"], "model_start_timestamp": timestampStr}})
         
         roni_db.insert(test_run_dict)
         
