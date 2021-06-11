@@ -207,7 +207,7 @@ class FedAvgServer(object):
         Additional feature of Record On Negative Impact (RONI) which constructs every permutation of
         the global model leaving one update out and then comparing the performance with the complete
         global model.
-        """
+        
         if self.unique_updates_since_last_agg < self.update_lim:
             return False
 
@@ -233,32 +233,6 @@ class FedAvgServer(object):
                 update_sizes.append(self.worker_updates[wi][1])
                 worker_ids.append(wi)
         
-        # now update the global model and implement roni if required
-        
-        # Create trainer with hold out test set
-        
-        with open('roni_config', 'rt') as f:
-            config = json.load(f)
-            
-        roni_trainer = create_trainer_from_config(config)
-        
-        for i in range(len(worker_ids)):
-            state_dict_subset_minus_worker = [model for index, model in enumerate(state_dicts_to_update_with) if index != i]
-            update_sizes_subset_minus_worker = [size for index, size in enumerate(update_sizes) if index != i]
-            subset_agg_model = gen_agg_model(state_dict_subset_minus_worker, update_sizes_subset_minus_worker)
-            print("Subset model size:")
-            print(len(subset_agg_model))
-
-            # Load into global model for testing - replace with validation set testing
-
-            logger.info("Performance on test set without worker {}".format(worker_ids[i]))
-            
-            # Evaluate against held back test set or robust synthetic test set
-            
-            self.global_model_trainer.load_model_from_state_dict(subset_agg_model)
-            roni_trainer.load_model(self.global_model_trainer.get_model())
-            roni_trainer.test()
-        
         # now update the global model
         global_model_dict = OrderedDict()
         for key in state_dicts_to_update_with[0].keys():
@@ -273,7 +247,8 @@ class FedAvgServer(object):
         self.model_version += 1
 
         return True
-
+        """
+        
     def start(self):
         self.server.start_server()
         
@@ -388,20 +363,19 @@ class FedAvgServerRoni(FedAvgServer):
         
         dateTimeObj = datetime.now()
         timestampStr = dateTimeObj.strftime("%d-%b-%Y (%H:%M:%S.%f)")
-            
-        roni_trainer = self.roni_trainer_creator
         
         test_run_dict = {self.model_version: {}}
         
         for i in range(len(worker_ids)):
+            roni_trainer = self.roni_trainer_creator
             state_dict_subset_minus_worker = [model for index, model in enumerate(state_dicts_to_update_with) if index != i]
             update_sizes_subset_minus_worker = [size for index, size in enumerate(update_sizes) if index != i]
+            
+            logger.info("Length of subset list: {}".format(len(state_dict_subset_minus_worker))
+            
             subset_agg_model = gen_agg_model(state_dict_subset_minus_worker, update_sizes_subset_minus_worker)
             
             logger.info("Subset agg model keys: {}".format(subset_agg_model.keys()))
-            
-            print("Subset model size:")
-            print(len(subset_agg_model))
             
             for k, v in subset_agg_model.items():
                 logger.info("key: {}".format(k))
@@ -428,6 +402,7 @@ class FedAvgServerRoni(FedAvgServer):
         
         # Get test perf for global model with all updates
         
+        roni_trainer = self.roni_trainer_creator
         roni_trainer.load_model_from_state_dict(global_model_dict)
         global_model_test_perf = roni_trainer.test()
         
