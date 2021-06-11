@@ -388,8 +388,6 @@ class FedAvgServerRoni(FedAvgServer):
         
         dateTimeObj = datetime.now()
         timestampStr = dateTimeObj.strftime("%d-%b-%Y (%H:%M:%S.%f)")
-            
-        roni_trainer = self.roni_trainer_creator
         
         test_run_dict = {self.model_version: {}}
         
@@ -398,21 +396,14 @@ class FedAvgServerRoni(FedAvgServer):
             update_sizes_subset_minus_worker = [size for index, size in enumerate(update_sizes) if index != i]
             subset_agg_model = gen_agg_model(state_dict_subset_minus_worker, update_sizes_subset_minus_worker)
             
-            logger.info("Subset agg model keys: {}".format(subset_agg_model.keys()))
-            
-            print("Subset model size:")
-            print(len(subset_agg_model))
-            
-            for k, v in subset_agg_model.items():
-                logger.info("key: {}".format(k))
-                logger.info("value: {}".format(v))
+            logger.info("Length of state_dict_subset_minus_worker {}".format(len(state_dict_subset_minus_worker)))
             
             # Load into global model for testing - replace with validation set testing
 
             logger.info("Performance on test set without worker {}".format(worker_ids[i]))
             
             # Evaluate against held back test set or robust synthetic test set
-            
+            roni_trainer = self.roni_trainer_creator
             roni_trainer.load_model_from_state_dict(subset_agg_model)
             subset_test_perf = roni_trainer.test()
             
@@ -428,6 +419,7 @@ class FedAvgServerRoni(FedAvgServer):
         
         # Get test perf for global model with all updates
         
+        roni_trainer = self.roni_trainer_creator
         roni_trainer.load_model_from_state_dict(global_model_dict)
         global_model_test_perf = roni_trainer.test()
         
