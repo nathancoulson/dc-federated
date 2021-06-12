@@ -396,8 +396,6 @@ class FedAvgServerRoni(FedAvgServer):
             update_sizes_subset_minus_worker = [size for index, size in enumerate(update_sizes) if index != i]
             subset_agg_model = gen_agg_model(state_dict_subset_minus_worker, update_sizes_subset_minus_worker)
             
-            logger.info("Length of state_dict_subset_minus_worker {}".format(len(state_dict_subset_minus_worker)))
-            
             # Load into global model for testing - replace with validation set testing
 
             logger.info("Performance on test set without worker {}".format(worker_ids[i]))
@@ -418,6 +416,8 @@ class FedAvgServerRoni(FedAvgServer):
                 key, state_dicts_to_update_with, update_sizes)
         
         # Get test perf for global model with all updates
+        
+        logger.info("Performance on test set with global model (all workers)")
         
         roni_trainer = self.roni_trainer_creator
         roni_trainer.load_model_from_state_dict(global_model_dict)
